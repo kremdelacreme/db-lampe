@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1a1a">
+<title>DB-Lampe</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23EC0016'/%3E%3Ctext x='50' y='66' font-family='Arial,sans-serif' font-weight='700' font-size='46' fill='white' text-anchor='middle'%3EDB%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --rot: #EC0016;
+    --bg: #1a1a1a;
+    --karte: #262626;
+    --text: #f2f2f2;
+    --leise: #a0a0a0;
+    --rand: #3a3a3a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 18px; line-height: 1.4;
+  }
+  main { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .logo {
+    width: 52px; height: 36px; border: 3px solid var(--rot); border-radius: 8px;
+    display: grid; place-items: center; font-weight: 800; color: var(--rot); font-size: 18px;
+  }
+  h1 { font-size: 24px; margin: 0; flex: 1; }
+  .status { font-size: 15px; color: var(--leise); display: flex; align-items: center; gap: 6px; }
+  .punkt { width: 10px; height: 10px; border-radius: 50%; background: #666; }
+  .verbunden .punkt { background: #3ecf5a; }
+
+  .karte { background: var(--karte); border-radius: 18px; padding: 18px; margin-bottom: 16px; }
+  .karte h2 { font-size: 15px; font-weight: 600; color: var(--leise); margin: 0 0 12px;
+              text-transform: uppercase; letter-spacing: .05em; }
+
+  button { font: inherit; color: inherit; cursor: pointer; border: none; }
+  .gross {
+    width: 100%; padding: 22px; border-radius: 16px; font-size: 22px; font-weight: 700;
+    background: var(--rot); color: #fff;
+  }
+  .gross:active { transform: scale(.98); }
+
+  #schalter { background: #333; border: 2px solid var(--rand); transition: background .2s, border-color .2s; }
+  #schalter.an { background: var(--rot); border-color: var(--rot); }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 44px; background: transparent;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 12px; border-radius: 6px; background: linear-gradient(90deg, #444, #fff);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 34px; height: 34px; margin-top: -11px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--rot);
+  }
+  .zeile { display: flex; justify-content: space-between; align-items: baseline; }
+  .wert { font-size: 20px; font-weight: 700; }
+
+  .farben { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .farbe {
+    height: 64px; border-radius: 14px; border: 3px solid transparent;
+    display: flex; align-items: flex-end; justify-content: center; padding: 0 4px 6px;
+    font-size: 12px; font-weight: 600; line-height: 1.1; text-align: center;
+    box-shadow: inset 0 -26px 22px -18px rgba(0,0,0,.45);
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+  .farbe:active { transform: scale(.96); }
+  .farbe.aktiv { border-color: #fff; outline: 3px solid var(--rot); outline-offset: 2px; }
+
+  .effekte { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .effekt {
+    padding: 16px 10px; border-radius: 14px; background: #333; border: 2px solid var(--rand);
+    font-size: 17px; font-weight: 600;
+  }
+  .effekt.aktiv { border-color: var(--rot); background: #3a1418; }
+
+  .gesperrt { opacity: .35; pointer-events: none; }
+  .hinweis { color: var(--leise); font-size: 15px; text-align: center; margin: 12px 0 0; }
+  .fehler { color: #ff8a8a; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo">DB</div>
+    <h1>DB-Lampe</h1>
+    <div class="status" id="status"><span class="punkt"></span><span id="statustext">getrennt</span></div>
+  </header>
+
+  <section class="karte" id="verbinden-karte">
+    <button class="gross" id="verbinden">Mit Lampe verbinden</button>
+    <p class="hinweis" id="hinweis">Bluetooth am Handy muss eingeschaltet sein.</p>
+  </section>
+
+  <div id="steuerung" class="gesperrt">
+    <section class="karte">
+      <button class="gross" id="schalter">Licht ist aus</button>
+    </section>
+
+    <section class="karte">
+      <div class="zeile"><h2>Helligkeit</h2><span class="wert" id="hell-wert">–</span></div>
+      <input type="range" id="hell" min="1" max="255" value="128" aria-label="Helligkeit">
+    </section>
+
+    <section class="karte">
+      <h2>Farbe</h2>
+      <div class="farben" id="farben"></div>
+    </section>
+
+    <section class="karte">
+      <h2>Effekt</h2>
+      <div class="effekte" id="effekte"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+const SERVICE = "7d1c0001-4a3b-4c5e-9f20-6b8e5d2a1c01";
+const BEFEHL  = "7d1c0002-4a3b-4c5e-9f20-6b8e5d2a1c01";
+const STATUS  = "7d1c0003-4a3b-4c5e-9f20-6b8e5d2a1c01";
+
+const FARBEN = [
+  { name: "DB-Rot",      rgb: [255, 0, 0] },
+  { name: "Kirschrot",   rgb: [200, 0, 40] },
+  { name: "Rosa",        rgb: [255, 60, 120] },
+  { name: "Magenta",     rgb: [255, 0, 180] },
+  { name: "Orange",      rgb: [255, 70, 0] },
+  { name: "Bernstein",   rgb: [255, 120, 0] },
+  { name: "Gelb",        rgb: [255, 190, 0] },
+  { name: "Zitrone",     rgb: [230, 255, 0] },
+  { name: "Hellgrün",    rgb: [120, 255, 0] },
+  { name: "Grün",        rgb: [0, 255, 0] },
+  { name: "Mint",        rgb: [0, 255, 120] },
+  { name: "Türkis",      rgb: [0, 255, 200] },
+  { name: "Cyan",        rgb: [0, 200, 255] },
+  { name: "Himmelblau",  rgb: [0, 110, 255] },
+  { name: "Blau",        rgb: [0, 0, 255] },
+  { name: "Violett",     rgb: [90, 0, 255] },
+  { name: "Lila",        rgb: [170, 0, 255] },
+  { name: "Kerzenlicht", rgb: [255, 110, 20] },
+  { name: "Warmweiß",    rgb: [255, 160, 70] },
+  { name: "Weiß",        rgb: [255, 255, 255] },
+];
+// Reihenfolge muss zur YAML passen (0 = kein Effekt)
+const EFFEKTE = ["Kein Effekt", "Regenbogen", "Farbwechsel", "Funkeln", "Pulsieren", "Lauflicht"];
+
+const $ = (id) => document.getElementById(id);
+let geraet = null, befehlChar = null;
+let zustand = { an: false, hell: 128, rgb: [255, 0, 0], effekt: 0 };
+let schiebtGerade = false;
+
+// ---------- Oberfläche aufbauen ----------
+// Anzeige-Farbe am Bildschirm etwas gedämpfter, damit die Felder angenehm aussehen
+const anzeige = (rgb) => `rgb(${rgb.map((v) => Math.round(30 + v * 0.82)).join(",")})`;
+FARBEN.forEach((f) => {
+  const b = document.createElement("button");
+  b.className = "farbe";
+  b.style.background = anzeige(f.rgb);
+  if (f.rgb[0] + f.rgb[1] + f.rgb[2] > 560 || (f.rgb[1] > 180 && f.rgb[2] < 100)) {
+    b.style.color = "#222"; b.style.textShadow = "none";
+    b.style.boxShadow = "inset 0 -26px 22px -18px rgba(0,0,0,.12)";
+  }
+  b.dataset.rgb = f.rgb.join(",");
+  b.textContent = f.name;
+  b.onclick = () => farbeSetzen(f.rgb);
+  $("farben").append(b);
+});
+EFFEKTE.forEach((name, i) => {
+  const b = document.createElement("button");
+  b.className = "effekt"; b.textContent = name; b.dataset.i = i;
+  b.onclick = () => senden([0x04, i]);
+  $("effekte").append(b);
+});
+
+// ---------- Senden (immer nur ein Befehl gleichzeitig, der neueste gewinnt) ----------
+let warteschlange = new Map(), sendetGerade = false;
+function senden(bytes) {
+  if (!befehlChar) return;
+  warteschlange.set(bytes[0], bytes); // pro Befehlsart nur den neuesten behalten
+  if (!sendetGerade) abarbeiten();
+}
+async function abarbeiten() {
+  sendetGerade = true;
+  while (warteschlange.size && befehlChar) {
+    const [art, bytes] = warteschlange.entries().next().value;
+    warteschlange.delete(art);
+    try { await befehlChar.writeValue(new Uint8Array(bytes)); }
+    catch (e) { console.warn("Senden fehlgeschlagen", e); }
+  }
+  sendetGerade = false;
+}
+
+function farbeSetzen(rgb) { senden([0x03, ...rgb]); }
+
+$("schalter").onclick = () => senden([0x01, zustand.an ? 0 : 1]);
+
+const hell = $("hell");
+hell.addEventListener("pointerdown", () => (schiebtGerade = true));
+hell.addEventListener("pointerup", () => (schiebtGerade = false));
+hell.addEventListener("pointercancel", () => (schiebtGerade = false));
+hell.addEventListener("input", () => {
+  $("hell-wert").textContent = Math.round((hell.value / 255) * 100) + " %";
+  senden([0x02, Number(hell.value)]);
+});
+
+// ---------- Status von der Lampe anzeigen ----------
+function statusAnzeigen(dv) {
+  if (dv.byteLength < 6) return;
+  zustand = {
+    an: dv.getUint8(0) === 1, hell: dv.getUint8(1),
+    rgb: [dv.getUint8(2), dv.getUint8(3), dv.getUint8(4)], effekt: dv.getUint8(5),
+  };
+  const s = $("schalter");
+  s.classList.toggle("an", zustand.an);
+  s.textContent = zustand.an ? "Licht ist an" : "Licht ist aus";
+  if (!schiebtGerade) {
+    hell.value = Math.max(1, zustand.hell);
+    $("hell-wert").textContent = Math.round((Math.max(1, zustand.hell) / 255) * 100) + " %";
+  }
+  document.querySelectorAll(".farbe[data-rgb]").forEach((b) => {
+    b.classList.toggle("aktiv", zustand.effekt === 0 && b.dataset.rgb === zustand.rgb.join(","));
+  });
+  document.querySelectorAll(".effekt").forEach((b) => {
+    b.classList.toggle("aktiv", Number(b.dataset.i) === zustand.effekt);
+  });
+}
+
+// ---------- Verbindung ----------
+function verbundenAnzeigen(ja, text) {
+  $("status").classList.toggle("verbunden", ja);
+  $("statustext").textContent = text || (ja ? "verbunden" : "getrennt");
+  $("steuerung").classList.toggle("gesperrt", !ja);
+  $("verbinden-karte").hidden = ja;
+}
+function hinweis(text, fehler) {
+  const h = $("hinweis"); h.textContent = text; h.classList.toggle("fehler", !!fehler);
+}
+
+async function gattVerbinden(dev) {
+  verbundenAnzeigen(false, "verbinde …");
+  const server = await dev.gatt.connect();
+  const service = await server.getPrimaryService(SERVICE);
+  befehlChar = await service.getCharacteristic(BEFEHL);
+  const statusChar = await service.getCharacteristic(STATUS);
+  statusChar.addEventListener("characteristicvaluechanged", (e) => statusAnzeigen(e.target.value));
+  await statusChar.startNotifications();
+  statusAnzeigen(await statusChar.readValue());
+  verbundenAnzeigen(true);
+}
+
+function geraetMerken(dev) {
+  if (geraet === dev) return;
+  geraet = dev;
+  dev.addEventListener("gattserverdisconnected", async () => {
+    befehlChar = null;
+    verbundenAnzeigen(false, "getrennt");
+    // bis zu 3 Mal automatisch neu verbinden
+    for (let i = 0; i < 3; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      try { await gattVerbinden(dev); return; } catch (e) {}
+    }
+    hinweis("Verbindung verloren. Bitte erneut verbinden.", true);
+    verbundenAnzeigen(false, "getrennt");
+  });
+}
+
+$("verbinden").onclick = async () => {
+  if (!navigator.bluetooth) {
+    hinweis("Dieser Browser kann kein Bluetooth. Bitte die Seite in Chrome auf Android öffnen.", true);
+    return;
+  }
+  try {
+    hinweis("Bitte „db-lampe“ in der Liste auswählen.");
+    const dev = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE] }, { name: "db-lampe" }],
+      optionalServices: [SERVICE],
+    });
+    geraetMerken(dev);
+    await gattVerbinden(dev);
+  } catch (e) {
+    verbundenAnzeigen(false);
+    if (e.name === "NotFoundError") hinweis("Keine Lampe ausgewählt. Ist sie eingesteckt und in der Nähe?");
+    else hinweis("Verbindung fehlgeschlagen: " + e.message, true);
+  }
+};
+
+// Beim Öffnen: bekannte Lampe automatisch verbinden (wenn Chrome das unterstützt)
+(async () => {
+  if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
+  try {
+    const bekannte = await navigator.bluetooth.getDevices();
+    if (!bekannte.length) return;
+    const dev = bekannte[0];
+    geraetMerken(dev);
+    hinweis("Verbinde mit der Lampe …");
+    await gattVerbinden(dev);
+  } catch (e) {
+    verbundenAnzeigen(false);
+    hinweis("Bitte auf „Mit Lampe verbinden“ tippen.");
+  }
+})();
+
+// Wenn die App wieder in den Vordergrund kommt und getrennt ist: neu verbinden
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible" && geraet && !geraet.gatt.connected) {
+    try { await gattVerbinden(geraet); } catch (e) {}
+  }
+});
+</script>
+</body>
+</html>
